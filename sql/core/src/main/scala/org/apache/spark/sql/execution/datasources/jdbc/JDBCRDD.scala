@@ -45,7 +45,6 @@ object JDBCRDD extends Logging {
    * schema.
    *
    * @param options - JDBC options that contains url, table and other information.
-   *
    * @return A StructType giving the table's Catalyst schema.
    * @throws java.sql.SQLException if the table specification is garbage.
    * @throws java.sql.SQLException if the table contains an unsupported type.
@@ -65,13 +64,22 @@ object JDBCRDD extends Logging {
       val statement = conn.prepareStatement(query)
       try {
         statement.setQueryTimeout(options.queryTimeout)
-        val rs = statement.executeQuery()
-        try {
-          JdbcUtils.getSchema(rs, dialect, alwaysNullable = true,
-            isTimestampNTZ = options.inferTimestampNTZType)
-        } finally {
-          rs.close()
+        val metadata = try {
+          statement.getMetaData
+        } catch {
+          case e: Exception =>
+            logWarning("Failed to resolve schema with PreparedStatement.getMetaData()", e)
+            val statementForExecuteQuery = conn.prepareStatement(query)
+            val rs = statementForExecuteQuery.executeQuery()
+            try {
+              rs.getMetaData
+            } finally {
+              rs.close()
+              statementForExecuteQuery.close()
+            }
         }
+        JdbcUtils.getSchema(metadata, dialect, alwaysNullable = true,
+          isTimestampNTZ = options.inferTimestampNTZType)
       } finally {
         statement.close()
       }

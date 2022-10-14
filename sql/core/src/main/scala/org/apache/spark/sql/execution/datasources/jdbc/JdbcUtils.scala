@@ -250,7 +250,7 @@ object JdbcUtils extends Logging with SQLConfHelper {
         conn.prepareStatement(options.prepareQuery + dialect.getSchemaQuery(options.tableOrQuery))
       try {
         statement.setQueryTimeout(options.queryTimeout)
-        Some(getSchema(statement.executeQuery(), dialect,
+        Some(getSchema(statement.executeQuery().getMetaData, dialect,
           isTimestampNTZ = options.inferTimestampNTZType))
       } catch {
         case _: SQLException => None
@@ -271,11 +271,10 @@ object JdbcUtils extends Logging with SQLConfHelper {
    * @throws SQLException if the schema contains an unsupported type.
    */
   def getSchema(
-      resultSet: ResultSet,
+      rsmd: ResultSetMetaData,
       dialect: JdbcDialect,
       alwaysNullable: Boolean = false,
       isTimestampNTZ: Boolean = false): StructType = {
-    val rsmd = resultSet.getMetaData
     val ncols = rsmd.getColumnCount
     val fields = new Array[StructField](ncols)
     var i = 0
